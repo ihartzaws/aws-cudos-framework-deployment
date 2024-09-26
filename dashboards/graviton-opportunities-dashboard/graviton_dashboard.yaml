@@ -15275,7 +15275,7 @@ views:
          , cur.pricing_offering_class
          , cur.pricing_purchase_option
          , SUM((CASE WHEN (cur.line_item_line_item_type = 'SavingsPlanCoveredUsage') THEN cur.line_item_usage_amount WHEN (cur.line_item_line_item_type = 'DiscountedUsage') THEN cur.line_item_usage_amount WHEN (cur.line_item_line_item_type = 'Usage') THEN cur.line_item_usage_amount ELSE 0 END)) line_item_usage_amount
-         , (SUM((CASE WHEN (cur.line_item_line_item_type = 'SavingsPlanCoveredUsage') THEN cur.line_item_usage_amount WHEN (cur.line_item_line_item_type = 'DiscountedUsage') THEN cur.line_item_usage_amount WHEN (cur.line_item_line_item_type = 'Usage') THEN cur.line_item_usage_amount ELSE 0 END)) * CAST(product_vcpu AS double)) line_item_vcpu_normalized_usage_amount
+         , (SUM((CASE WHEN (cur.line_item_line_item_type = 'SavingsPlanCoveredUsage') THEN cur.line_item_usage_amount WHEN (cur.line_item_line_item_type = 'DiscountedUsage') THEN cur.line_item_usage_amount WHEN (cur.line_item_line_item_type = 'Usage') THEN cur.line_item_usage_amount ELSE 0 END)) * CASE WHEN product_vcpu = '' THEN 0 ELSE CAST(product_vcpu AS double) END ) line_item_vcpu_normalized_usage_amount
          , SUM(line_item_unblended_cost) line_item_unblended_cost
          , SUM((CASE WHEN (cur.line_item_line_item_type = 'SavingsPlanCoveredUsage') THEN cur.savings_plan_savings_plan_effective_cost WHEN (cur.line_item_line_item_type = 'SavingsPlanRecurringFee') THEN (cur.savings_plan_total_commitment_to_date - cur.savings_plan_used_commitment) WHEN (cur.line_item_line_item_type = 'SavingsPlanNegation') THEN 0 WHEN (cur.line_item_line_item_type = 'SavingsPlanUpfrontFee') THEN 0 WHEN (cur.line_item_line_item_type = 'DiscountedUsage') THEN cur.reservation_effective_cost WHEN (cur.line_item_line_item_type = 'RIFee') THEN (cur.reservation_unused_amortized_upfront_fee_for_billing_period + cur.reservation_unused_recurring_fee) WHEN ((cur.line_item_line_item_type = 'Fee') AND (cur.reservation_reservation_a_r_n <> '')) THEN 0 ELSE cur.line_item_unblended_cost END)) amortized_cost
          , modernization_mapping.generation
@@ -15309,10 +15309,10 @@ views:
       , describe_domains.engine
       , describe_domains.version
       , (CASE WHEN (describe_domains.engine = 'OpenSearch') THEN 'Eligible' WHEN (describe_domains.engine = 'Elasticsearch') THEN (CASE WHEN (describe_domains.major > '7') THEN 'Eligible' WHEN ((describe_domains.major = '7') AND (describe_domains.minor >= '9')) THEN 'Eligible' WHEN ((describe_domains.major = '7') AND (describe_domains.minor < '9')) THEN 'Requires Update' WHEN (describe_domains.major < '7') THEN 'Requires Update' END) END) graviton_eligibility
-      , (CAST(PL1.priceperunit AS double) * cur.line_item_usage_amount) graviton_price
-      , (cur.line_item_unblended_cost - (CAST(PL1.priceperunit AS double) * cur.line_item_usage_amount)) graviton_savings
-      , (CAST(PL2.priceperunit AS double) * cur.line_item_usage_amount) intel_equivilant_price
-      , ((CAST(PL2.priceperunit AS double) * cur.line_item_usage_amount) - cur.line_item_unblended_cost) existing_savings
+      , (CASE WHEN PL1.priceperunit = '' THEN 0 ElSE CAST(PL1.priceperunit AS double) * cur.line_item_usage_amount END) graviton_price
+      , (CASE WHEN PL1.priceperunit = '' THEN cur.line_item_unblended_cost ELSE cur.line_item_unblended_cost - (CAST(PL1.priceperunit AS double) * cur.line_item_usage_amount) END) graviton_savings
+      , (CASE WHEN PL2.priceperunit = '' THEN 0 ELSE CAST(PL2.priceperunit AS double) * cur.line_item_usage_amount END) intel_equivilant_price
+      , (CASE WHEN PL2.priceperunit = '' THEN - cur.line_item_unblended_cost ELSE (CAST(PL2.priceperunit AS double) * cur.line_item_usage_amount) - cur.line_item_unblended_cost END) existing_savings
       FROM
         (((cur_data cur
       LEFT JOIN describe_domains ON (cur.line_item_resource_id = describe_domains.domainname))
